@@ -1,0 +1,111 @@
+# Nightly rebuild and deploy.
+#
+# The model runs here, not in the browser. This job fetches filings and prices,
+# fits every quarterly cross-section, and publishes the resulting static page to
+# GitHub Pages. The site never makes a live call, so an endpoint having a bad day
+# means the numbers are a day stale — it can never mean a visitor sees a broken
+# page or, worse, a half-rendered wrong one.
+name: Build and deploy
+
+on:
+  schedule:
+    # 23:00 UTC on weekdays — after the US close, and comfortably clear of the
+    # window when the day's 10-Qs are still landing on EDGAR.
+    - cron: "0 23 * * 1-5"
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements.txt
+      # The estimator is checked against generated data with known coefficients,
+      # and the fundamentals path against a fixture in EDGAR's own shape, before
+      # anything is allowed to publish. A broken model that still produces
+      # plausible-looking numbers is the failure mode worth guarding against.
+      - run: python tests/test_model.py
+      - run: python tests/test_pipeline.py
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements.txt
+
+      # EDGAR is the expensive leg: a cold cache is a few thousand requests at
+      # the SEC's rate limit, roughly twenty minutes. Restoring it keeps the
+      # nightly run to about two, and means a bad night costs staleness rather
+      # than the whole dataset. The key rotates per run; restore-keys pull the
+      # most recent previous cache.
+      - name: Restore EDGAR cache
+        uses: actions/cache@v4
+        with:
+          path: data/cache
+          key: edgar-${{ github.run_id }}
+          restore-keys: edgar-
+
+      - name: Audit data sources
+        continue-on-error: true
+        env:
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+        run: python audit.py
+
+      - name: Build
+        env:
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+        run: python run.py
+
+      # If the build produced nothing, fail here rather than deploying an empty
+      # page over a working one.
+      - name: Check output
+        run: |
+          test -s site/index.json || { echo "empty build output"; exit 1; }
+          python - <<'PY'
+          import json, sys
+          d = json.load(open("site/index.json"))
+          n = len(d["companies"])
+          q = d["summary"]["quarters_fitted"]
+          print(f"{n} companies, {q} quarters fitted")
+          if d["meta"]["demo"]:
+              sys.exit("refusing to deploy a demo build")
+          if n < 50 or q < 20:
+              sys.exit("suspiciously thin build; not deploying")
+          PY
+
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: site }
+
+      - name: Upload audit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit
+          path: audit_results.json
+          if-no-files-found: warn
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,9 +1,0 @@
-Ticker,Company Name,Stock Price ($),Market Cap ($B),Enterprise Value ($B),LTM Revenue ($B),LTM EBITDA ($B),YoY Rev Growth (%),FCF Margin (%),Rule of 40 (%),EV / LTM Revenue,EV / LTM EBITDA
-MSFT,Microsoft Corporation,481.63,3576.37,3618.83,331.84,194.24,17.7,5.0,22.7,10.91,18.63
-CRM,"Salesforce, Inc.",196.14,N/A,187.12,42.83,12.89,13.3,38.6,51.9,4.37,14.51
-NOW,"ServiceNow, Inc.",119.49,123.54,125.47,14.73,2.9,24.0,35.0,59.0,8.52,43.31
-SNOW,Snowflake Inc.,325.33,112.76,114.23,5.03,-1.13,33.5,34.6,68.1,22.7,-101.39
-DDOG,"Datadog, Inc.",246.0,88.33,85.1,3.97,0.08,35.6,26.5,62.1,21.45,1026.56
-CRWD,"CrowdStrike Holdings, Inc.",212.92,216.81,214.12,5.09,0.06,25.6,37.8,63.4,42.03,3609.56
-PLTR,Palantir Technologies Inc.,171.54,412.22,405.56,6.16,2.66,92.8,35.1,127.9,65.88,152.32
-NET,"Cloudflare, Inc.",301.36,107.31,108.69,2.51,-0.01,35.9,27.5,63.4,43.26,-21534.89

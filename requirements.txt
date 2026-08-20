@@ -1,0 +1,7 @@
+# Deliberately small. The regression, the robust standard errors and the
+# hypothesis test are written out in forty/model.py rather than imported, so
+# that the statistics can be read and checked rather than trusted.
+pandas>=2.1
+numpy>=1.26
+pyarrow>=14.0        # parquet cache for the price panel
+yfinance>=0.2.40     # primary price source; Stooq is the fallback and needs nothing

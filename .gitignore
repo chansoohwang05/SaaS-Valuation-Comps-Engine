@@ -1,0 +1,15 @@
+# Build outputs and caches. The site is rebuilt by CI on every push, so the
+# generated JSON does not belong in git — only the page that renders it does.
+data/cache/
+data/*.parquet
+site/index.json
+site/companies/
+audit_results.json
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forty — what the market pays for growth</title>
+<meta name="description" content="The Rule of 40 weights a point of growth the same as a point of margin. Quarterly cross-sectional regressions of US software companies test whether the market agrees.">
+<style>
+:root {
+  color-scheme: light;
+  --surface-0: #ffffff;
+  --surface-1: #fcfcfb;
+  --surface-2: #f4f3f0;
+  --line: #e2e0da;
+  --line-strong: #cbc8c0;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #86847d;
+  --growth: #2a78d6;
+  --margin: #eb6834;
+  --pos: #2a78d6;
+  --neg: #e34948;
+  --grid: #ebe9e4;
+  --band: #f2f1ed;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-0: #131312;
+  --surface-1: #1a1a19;
+  --surface-2: #232322;
+  --line: #34342f;
+  --line-strong: #4a4a44;
+  --text-primary: #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted: #8f8e85;
+  --growth: #3987e5;
+  --margin: #d95926;
+  --pos: #3987e5;
+  --neg: #e66767;
+  --grid: #2a2a28;
+  --band: #202020;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--surface-0);
+  color: var(--text-primary);
+  font: 15px/1.6 ui-sans-serif, -apple-system, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px 96px; }
+a { color: inherit; }
+
+/* ---------- header ---------- */
+header { padding: 56px 0 32px; border-bottom: 1px solid var(--line); }
+h1 { font-size: 40px; letter-spacing: -0.025em; margin: 0 0 10px; font-weight: 620; }
+.thesis {
+  font-size: 21px; line-height: 1.45; color: var(--text-primary);
+  max-width: 46ch; margin: 0 0 18px; font-weight: 400;
+}
+.thesis em { font-style: normal; border-bottom: 2px solid var(--growth); }
+.sub { color: var(--text-secondary); max-width: 66ch; margin: 0 0 6px; }
+.stamp { color: var(--text-muted); font-size: 13px; font-family: var(--mono); }
+.topbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.ghost {
+  background: none; border: 1px solid var(--line-strong); color: var(--text-secondary);
+  border-radius: 999px; padding: 6px 14px; font-size: 13px; cursor: pointer;
+}
+.ghost:hover { background: var(--surface-2); color: var(--text-primary); }
+
+.banner {
+  margin: 20px 0 0; padding: 12px 16px; border-radius: 8px;
+  background: #fff4ed; border: 1px solid #f0b48c; color: #7a3708; font-size: 14px;
+}
+:root[data-theme="dark"] .banner { background: #2e1a0d; border-color: #7a3708; color: #f3b98e; }
+
+/* ---------- sections ---------- */
+section { padding: 44px 0 0; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.09em;
+     color: var(--text-muted); font-weight: 600; margin: 0 0 18px; }
+h3 { font-size: 19px; margin: 0 0 6px; font-weight: 600; letter-spacing: -0.01em; }
+p.note { color: var(--text-secondary); max-width: 72ch; }
+
+/* ---------- stat tiles ---------- */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1px;
+         background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.tile { background: var(--surface-1); padding: 18px 20px; }
+.tile .k { font-size: 12px; color: var(--text-muted); text-transform: uppercase;
+           letter-spacing: 0.07em; margin-bottom: 8px; }
+.tile .v { font-size: 30px; font-weight: 640; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.tile .d { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+
+/* ---------- charts ---------- */
+figure { margin: 0; background: var(--surface-1); border: 1px solid var(--line);
+         border-radius: 10px; padding: 20px 20px 12px; }
+figcaption { font-size: 13px; color: var(--text-secondary); margin-top: 10px; max-width: 78ch; }
+.legend { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 14px; font-size: 13px; }
+.legend span { display: inline-flex; align-items: center; gap: 7px; color: var(--text-secondary); }
+.swatch { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+.swatch.dash { background: none !important; border-top: 3px dashed var(--text-muted); height: 0; }
+svg { display: block; width: 100%; overflow: visible; }
+.grid-line { stroke: var(--grid); stroke-width: 1; }
+.axis-text { fill: var(--text-muted); font-size: 11px; font-family: var(--mono); }
+.era-band { fill: var(--band); }
+.era-label { fill: var(--text-muted); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
+.hit { fill: transparent; cursor: crosshair; }
+.crosshair { stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 3 3; }
+.tip {
+  position: fixed; pointer-events: none; z-index: 40; opacity: 0;
+  background: var(--surface-0); border: 1px solid var(--line-strong); border-radius: 8px;
+  padding: 10px 12px; font-size: 12.5px; box-shadow: 0 6px 24px rgba(0,0,0,.14);
+  transition: opacity .08s; min-width: 170px;
+}
+.tip .th { font-family: var(--mono); color: var(--text-muted); margin-bottom: 6px; font-size: 11px; }
+.tip .tr { display: flex; justify-content: space-between; gap: 20px; }
+.tip .tr b { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* ---------- table ---------- */
+.controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+input[type=search] {
+  flex: 1 1 240px; padding: 9px 13px; border-radius: 8px; font-size: 14px;
+  border: 1px solid var(--line-strong); background: var(--surface-1); color: var(--text-primary);
+}
+input[type=search]:focus { outline: 2px solid var(--growth); outline-offset: 1px; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+th, td { padding: 9px 10px; text-align: right; border-bottom: 1px solid var(--line); }
+th { color: var(--text-muted); font-size: 11px; text-transform: uppercase;
+     letter-spacing: 0.06em; cursor: pointer; user-select: none; white-space: nowrap; font-weight: 600; }
+th:hover { color: var(--text-primary); }
+th.on { color: var(--text-primary); }
+th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
+td { font-variant-numeric: tabular-nums; }
+tbody tr { cursor: pointer; }
+tbody tr:hover { background: var(--surface-2); }
+.tick { font-family: var(--mono); font-weight: 600; }
+.co { color: var(--text-secondary); max-width: 260px; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap; }
+.prem { display: inline-flex; align-items: center; gap: 8px; justify-content: flex-end; width: 100%; }
+.bar { height: 8px; border-radius: 2px; }
+.up { color: var(--neg); } /* expensive vs model */
+.down { color: var(--pos); }
+
+/* ---------- detail ---------- */
+dialog {
+  border: 1px solid var(--line-strong); border-radius: 14px; padding: 0;
+  background: var(--surface-0); color: var(--text-primary);
+  max-width: 720px; width: calc(100% - 32px); box-shadow: 0 20px 70px rgba(0,0,0,.3);
+}
+dialog::backdrop { background: rgba(0,0,0,.45); }
+.dhead { padding: 22px 24px 16px; border-bottom: 1px solid var(--line);
+         display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.dbody { padding: 20px 24px 26px; }
+.verdict { font-size: 16px; line-height: 1.5; margin: 0 0 18px; max-width: 60ch; }
+.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px,1fr));
+      gap: 14px 20px; margin: 18px 0 0; }
+.kv div span { display: block; font-size: 11px; text-transform: uppercase;
+                letter-spacing: .06em; color: var(--text-muted); }
+.kv div b { font-size: 16px; font-variant-numeric: tabular-nums; font-weight: 600; }
+.close { background: none; border: 0; font-size: 24px; color: var(--text-muted);
+         cursor: pointer; line-height: 1; padding: 0 4px; }
+
+footer { margin-top: 60px; padding-top: 24px; border-top: 1px solid var(--line);
+         color: var(--text-muted); font-size: 13px; }
+footer a { color: var(--text-secondary); }
+.err { padding: 40px 0; color: var(--text-secondary); }
+@media (max-width: 640px) {
+  h1 { font-size: 30px; } .thesis { font-size: 18px; }
+  .hide-sm { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="topbar">
+    <span class="stamp" id="stamp">loading</span>
+    <button class="ghost" id="theme">dark</button>
+  </div>
+  <h1>Forty</h1>
+  <p class="thesis">The Rule of 40 weights a point of growth exactly the same as a
+    point of margin. <em>The market never has.</em></p>
+  <p class="sub">Every quarter since 2015, a cross-sectional regression of US software
+    companies on their own filed fundamentals, asking what the market paid for a point
+    of growth and what it paid for a point of free cash flow margin. The two are not
+    equal, they have never been equal, and the gap between them moved more than the
+    multiple itself.</p>
+  <div id="banner"></div>
+</header>
+
+<main id="main">
+  <section>
+    <h2>The finding</h2>
+    <div class="tiles" id="tiles"></div>
+  </section>
+
+  <section>
+    <h2>The price of a point</h2>
+    <figure>
+      <div class="legend">
+        <span><i class="swatch" style="background:var(--growth)"></i> a point of revenue growth</span>
+        <span><i class="swatch" style="background:var(--margin)"></i> a point of FCF margin</span>
+        <span><i class="swatch" style="background:var(--growth);opacity:.22;height:11px;width:16px"></i>
+          the gap the Rule of 40 assumes away</span>
+      </div>
+      <div id="chart-coef"></div>
+      <figcaption id="cap-coef"></figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>For context — the multiple itself</h2>
+    <figure>
+      <div id="chart-mult"></div>
+      <figcaption>Median EV / LTM revenue across the same universe. The multiple
+        round-trips; the <em>weighting</em> above does not — which is the point.
+        A comps table shows you this chart. It cannot show you the one above.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Every company, against the model</h2>
+    <p class="note">Each company's fair multiple is what the quarter's regression implies
+      for its growth, margin and size. The premium is how far its actual multiple sits
+      above or below that — a residual, not a recommendation. Click any row.</p>
+    <div class="controls">
+      <input type="search" id="q" placeholder="Search ticker or company" autocomplete="off">
+      <span class="stamp" id="count"></span>
+    </div>
+    <table>
+      <thead><tr>
+        <th data-k="ticker">Ticker</th>
+        <th data-k="name" class="hide-sm">Company</th>
+        <th data-k="market_cap">Mkt cap</th>
+        <th data-k="growth">Growth</th>
+        <th data-k="fcf_margin">FCF margin</th>
+        <th data-k="rule_of_40" class="hide-sm">Rule of 40</th>
+        <th data-k="ev_revenue">EV/Rev</th>
+        <th data-k="fair_ev_revenue" class="hide-sm">Fair</th>
+        <th data-k="premium">Premium</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>What this is not</h2>
+    <p class="note">A residual is not a valuation. A company trading above the line may
+      be growing into it, may have a mix the model cannot see, or may simply be expensive;
+      the model has three variables and the market has more. Free cash flow margin is
+      measured after stock-based compensation is added back in operating cash flow, which
+      flatters software companies specifically — the number is standard, and standard is
+      not the same as right. Coefficients are estimated on one quarter of data each, so a
+      single quarter's estimate is noisy; the count of quarters rejecting equal weighting
+      matters more than any one of them. Nothing here is investment advice.</p>
+  </section>
+</main>
+
+<footer>
+  <span id="lineage"></span>
+  &nbsp;·&nbsp; <a href="https://github.com/chansoohwang05/SaaS-Valuation-Comps-Engine">Source and method</a>
+</footer>
+</div>
+
+<div class="tip" id="tip"></div>
+
+<dialog id="detail">
+  <div class="dhead">
+    <div>
+      <h3 id="d-name">—</h3>
+      <span class="stamp" id="d-sub"></span>
+    </div>
+    <button class="close" id="d-close" aria-label="Close">&times;</button>
+  </div>
+  <div class="dbody">
+    <p class="verdict" id="d-verdict"></p>
+    <div class="legend">
+      <span><i class="swatch" style="background:var(--growth)"></i> actual EV / revenue</span>
+      <span><i class="swatch dash"></i> fair multiple implied by the model</span>
+    </div>
+    <div id="chart-co"></div>
+    <div class="kv" id="d-kv"></div>
+  </div>
+</dialog>
+
+<script>
+"use strict";
+
+const NS = "http://www.w3.org/2000/svg";
+const $ = (id) => document.getElementById(id);
+const tip = $("tip");
+
+/* ---------- formatting ---------- */
+const pct = (v, d = 0) => v == null ? "—" : (v * 100).toFixed(d) + "%";
+const mult = (v, d = 1) => v == null ? "—" : v.toFixed(d) + "x";
+const num = (v, d = 2) => v == null ? "—" : v.toFixed(d);
+const money = (v) => {
+  if (v == null) return "—";
+  const a = Math.abs(v);
+  if (a >= 1e12) return "$" + (v / 1e12).toFixed(1) + "T";
+  if (a >= 1e9) return "$" + (v / 1e9).toFixed(1) + "B";
+  if (a >= 1e6) return "$" + (v / 1e6).toFixed(0) + "M";
+  return "$" + v.toFixed(0);
+};
+const yearOf = (s) => +s.slice(0, 4) + (+s.slice(5, 7)) / 12;
+
+/* ---------- theme ---------- */
+(function theme() {
+  const saved = (() => { try { return localStorage.getItem("forty-theme"); } catch { return null; } })();
+  const prefersDark = matchMedia("(prefers-color-scheme: dark)").matches;
+  const set = (t) => {
+    document.documentElement.dataset.theme = t;
+    $("theme").textContent = t === "dark" ? "light" : "dark";
+    try { localStorage.setItem("forty-theme", t); } catch {}
+    if (window.DATA) draw();
+  };
+  set(saved || (prefersDark ? "dark" : "light"));
+  $("theme").onclick = () => set(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+})();
+
+/* ---------- a small line chart ----------
+   One y-axis, always. Two measures on different scales get two charts; the
+   coefficient chart works precisely because both series are in the same units. */
+function lineChart(host, opts) {
+  const { series, xs, height = 260, bands = [], hline = null, fillGap = false,
+          fmtY = (v) => v.toFixed(1), fmtTip = (v) => v.toFixed(2), dashIndex = -1 } = opts;
+  host.textContent = "";
+  const W = host.clientWidth || 800, H = height;
+  const M = { t: 12, r: 14, b: 26, l: 46 };
+  const iw = W - M.l - M.r, ih = H - M.t - M.b;
+
+  const all = series.flatMap(s => s.values).filter(v => v != null && isFinite(v));
+  let lo = Math.min(...all), hi = Math.max(...all);
+  if (hline != null) { lo = Math.min(lo, hline); hi = Math.max(hi, hline); }
+  const pad = (hi - lo) * 0.12 || 1;
+  lo -= pad; hi += pad;
+  if (lo > 0 && lo < (hi - lo) * 0.6) lo = 0;
+
+  const x = (i) => M.l + (xs.length < 2 ? iw / 2 : (i / (xs.length - 1)) * iw);
+  const y = (v) => M.t + ih - ((v - lo) / (hi - lo)) * ih;
+
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.setAttribute("height", H);
+  svg.setAttribute("role", "img");
+  const add = (tag, attrs, parent = svg) => {
+    const el = document.createElementNS(NS, tag);
+    for (const k in attrs) el.setAttribute(k, attrs[k]);
+    parent.appendChild(el);
+    return el;
+  };
+
+  // era bands sit behind everything, recessive
+  for (const b of bands) {
+    const i0 = xs.findIndex(d => d >= b.from), i1raw = xs.findIndex(d => d >= b.to);
+    const i1 = i1raw < 0 ? xs.length - 1 : i1raw;
+    if (i0 < 0 || i1 <= i0) continue;
+    add("rect", { class: "era-band", x: x(i0), y: M.t, width: x(i1) - x(i0), height: ih });
+    add("text", { class: "era-label", x: x(i0) + 6, y: M.t + 13 }).textContent = b.label;
+  }
+
+  const ticks = 5;
+  for (let i = 0; i <= ticks; i++) {
+    const v = lo + (hi - lo) * i / ticks;
+    add("line", { class: "grid-line", x1: M.l, x2: W - M.r, y1: y(v), y2: y(v) });
+    add("text", { class: "axis-text", x: M.l - 8, y: y(v) + 3.5, "text-anchor": "end" })
+      .textContent = fmtY(v);
+  }
+  if (hline != null) {
+    add("line", { x1: M.l, x2: W - M.r, y1: y(hline), y2: y(hline),
+                  stroke: "var(--text-muted)", "stroke-width": 1.5, "stroke-dasharray": "5 4" });
+  }
+
+  let lastYear = null;
+  xs.forEach((d, i) => {
+    const yr = d.slice(0, 4);
+    if (yr !== lastYear && (+yr % 2 === 1 || xs.length < 20)) {
+      lastYear = yr;
+      add("text", { class: "axis-text", x: x(i), y: H - 8, "text-anchor": "middle" }).textContent = yr;
+    } else if (yr !== lastYear) lastYear = yr;
+  });
+
+  // The distance between the two lines is the finding, so shade it rather than
+  // leaving the reader to measure it by eye. Drawn under the lines, at low
+  // opacity, so it reads as annotation and not as a third series.
+  if (fillGap && series.length >= 2) {
+    const pts = xs.map((_, i) => i)
+      .filter(i => [0, 1].every(s => series[s].values[i] != null && isFinite(series[s].values[i])));
+    if (pts.length > 1) {
+      const top = pts.map(i => `${x(i)},${y(series[0].values[i])}`).join("L");
+      const bot = pts.slice().reverse().map(i => `${x(i)},${y(series[1].values[i])}`).join("L");
+      add("path", { d: `M${top}L${bot}Z`, fill: series[0].color, opacity: 0.10, stroke: "none" });
+    }
+  }
+
+  series.forEach((s, si) => {
+    let d = "", pen = false;
+    s.values.forEach((v, i) => {
+      if (v == null || !isFinite(v)) { pen = false; return; }
+      d += (pen ? "L" : "M") + x(i) + "," + y(v);
+      pen = true;
+    });
+    add("path", {
+      d, fill: "none", stroke: s.color, "stroke-width": 2,
+      "stroke-linejoin": "round", "stroke-linecap": "round",
+      ...(si === dashIndex ? { "stroke-dasharray": "5 4" } : {})
+    });
+  });
+
+  // hover layer: crosshair + shared tooltip, the default for a line chart
+  const cross = add("line", { class: "crosshair", y1: M.t, y2: M.t + ih, opacity: 0 });
+  const dots = series.map(s => add("circle", {
+    r: 4.5, fill: s.color, stroke: "var(--surface-1)", "stroke-width": 2, opacity: 0
+  }));
+  const hit = add("rect", { class: "hit", x: M.l, y: M.t, width: iw, height: ih });
+
+  hit.addEventListener("pointermove", (ev) => {
+    const box = svg.getBoundingClientRect();
+    const px = (ev.clientX - box.left) * (W / box.width);
+    const i = Math.max(0, Math.min(xs.length - 1,
+      Math.round(((px - M.l) / iw) * (xs.length - 1))));
+    cross.setAttribute("x1", x(i)); cross.setAttribute("x2", x(i));
+    cross.setAttribute("opacity", 1);
+    let rows = "";
+    series.forEach((s, si) => {
+      const v = s.values[i];
+      if (v == null || !isFinite(v)) { dots[si].setAttribute("opacity", 0); return; }
+      dots[si].setAttribute("cx", x(i)); dots[si].setAttribute("cy", y(v));
+      dots[si].setAttribute("opacity", 1);
+      rows += `<div class="tr"><span style="color:${s.color}">${s.label}</span><b>${fmtTip(v)}</b></div>`;
+    });
+    tip.innerHTML = `<div class="th">${xs[i]}</div>${rows}`;
+    tip.style.opacity = 1;
+    tip.style.left = Math.min(ev.clientX + 16, innerWidth - 200) + "px";
+    tip.style.top = (ev.clientY - 12) + "px";
+  });
+  hit.addEventListener("pointerleave", () => {
+    tip.style.opacity = 0; cross.setAttribute("opacity", 0);
+    dots.forEach(d => d.setAttribute("opacity", 0));
+  });
+
+  host.appendChild(svg);
+}
+
+/* ---------- render ---------- */
+let SORT = { k: "market_cap", dir: -1 };
+
+function draw() {
+  const D = window.DATA;
+  const H = D.history, S = D.summary;
+  const xs = H.map(h => h.date);
+  const bands = [
+    { from: "2020-03-31", to: "2022-03-31", label: "zero rates" },
+    { from: "2022-06-30", to: "2023-12-31", label: "repricing" }
+  ];
+
+  lineChart($("chart-coef"), {
+    series: [
+      { label: "growth", color: "var(--growth)", values: H.map(h => h.b_growth) },
+      { label: "FCF margin", color: "var(--margin)", values: H.map(h => h.b_margin) }
+    ],
+    xs, bands, height: 300, fillGap: true,
+    fmtY: v => v.toFixed(1), fmtTip: v => v.toFixed(2)
+  });
+
+  const rejected = S.rule40_rejected_quarters, tested = S.rule40_tested_quarters;
+  $("cap-coef").innerHTML =
+    `Coefficients from a regression of log(EV / LTM revenue) on growth, FCF margin and
+     log(revenue), refit in each quarter with heteroskedasticity-robust standard errors.
+     Read a value as the percentage move in the multiple bought by one unit of the
+     variable. Equal weighting — the Rule of 40's assumption — is rejected at 5% in
+     <b>${rejected} of ${tested}</b> quarters fitted.`;
+
+  lineChart($("chart-mult"), {
+    series: [{ label: "median EV/revenue", color: "var(--text-secondary)",
+               values: H.map(h => h.median_multiple) }],
+    xs, bands, height: 200,
+    fmtY: v => v.toFixed(0) + "x", fmtTip: v => v.toFixed(1) + "x"
+  });
+
+  const L = S.latest || {};
+  const tiles = [
+    { k: "Price of growth, latest", v: L.ratio ? L.ratio.toFixed(1) + "x" : "—",
+      d: "points of margin the market would trade for one point of growth" },
+    { k: "Median, all quarters", v: S.median_growth_margin_ratio ? S.median_growth_margin_ratio.toFixed(1) + "x" : "—",
+      d: `across ${S.quarters_fitted} quarterly cross-sections` },
+    { k: "Equal weighting rejected", v: tested ? Math.round(100 * rejected / tested) + "%" : "—",
+      d: `${rejected} of ${tested} quarters, at the 5% level` },
+    { k: "Companies per quarter", v: Math.round(S.median_companies_per_quarter),
+      d: `median R² ${S.median_r2.toFixed(2)}` }
+  ];
+  $("tiles").innerHTML = tiles.map(t =>
+    `<div class="tile"><div class="k">${t.k}</div><div class="v">${t.v}</div><div class="d">${t.d}</div></div>`
+  ).join("");
+
+  $("stamp").textContent = `as of ${D.as_of} · ${D.companies.length} companies`;
+  $("lineage").textContent = D.meta.lineage.source + " · built " + D.meta.generated_at.replace("T", " ");
+  if (D.meta.demo) {
+    $("banner").innerHTML =
+      `<div class="banner"><b>Demo build.</b> These numbers come from generated data, not
+       from SEC filings — the repository was built with <code>--demo</code> so the site can
+       be seen without a twenty-minute fetch. Nothing on this page is a fact about any
+       real company.</div>`;
+  }
+  table();
+}
+
+function table() {
+  const q = $("q").value.trim().toLowerCase();
+  let rows = window.DATA.companies.filter(c =>
+    !q || c.ticker.toLowerCase().includes(q) || c.name.toLowerCase().includes(q));
+  rows.sort((a, b) => {
+    const av = a[SORT.k], bv = b[SORT.k];
+    if (typeof av === "string") return SORT.dir * av.localeCompare(bv);
+    return SORT.dir * ((av ?? -1e18) - (bv ?? -1e18));
+  });
+  const worst = Math.max(...rows.map(r => Math.abs(r.premium ?? 0)), 0.01);
+  $("count").textContent = `${rows.length} shown`;
+  $("rows").innerHTML = rows.slice(0, 400).map(c => {
+    const p = c.premium ?? 0;
+    const w = Math.round(Math.abs(p) / worst * 46);
+    const cls = p >= 0 ? "up" : "down";
+    const col = p >= 0 ? "var(--neg)" : "var(--pos)";
+    return `<tr data-t="${c.ticker}">
+      <td class="tick">${c.ticker}</td>
+      <td class="co hide-sm">${c.name}</td>
+      <td>${money(c.market_cap)}</td>
+      <td>${pct(c.growth, 0)}</td>
+      <td>${pct(c.fcf_margin, 0)}</td>
+      <td class="hide-sm">${c.rule_of_40 == null ? "—" : Math.round(c.rule_of_40)}</td>
+      <td>${mult(c.ev_revenue)}</td>
+      <td class="hide-sm">${mult(c.fair_ev_revenue)}</td>
+      <td><span class="prem"><i class="bar" style="width:${w}px;background:${col}"></i>
+        <span class="${cls}">${p >= 0 ? "+" : ""}${Math.round(p * 100)}%</span></span></td>
+    </tr>`;
+  }).join("");
+  for (const tr of $("rows").children) tr.onclick = () => openCompany(tr.dataset.t);
+}
+
+/* ---------- company detail ---------- */
+async function openCompany(ticker) {
+  const dlg = $("detail");
+  $("d-name").textContent = ticker;
+  $("d-sub").textContent = "loading";
+  $("chart-co").textContent = "";
+  $("d-kv").innerHTML = "";
+  $("d-verdict").textContent = "";
+  dlg.showModal();
+
+  let c;
+  try {
+    c = await (await fetch(`companies/${ticker}.json`)).json();
+  } catch {
+    $("d-sub").textContent = "could not load this company";
+    return;
+  }
+  const L = c.latest;
+  $("d-name").textContent = `${c.ticker} — ${c.name}`;
+  $("d-sub").textContent =
+    `fundamentals from the quarter ended ${L.reported_quarter}, filed ${L.known_from} · ` +
+    `${L.lag_days} days before the price used`;
+
+  const dir = L.premium >= 0 ? "above" : "below";
+  $("d-verdict").innerHTML =
+    `Trades at <b>${mult(L.ev_revenue)}</b> revenue. Its growth of ${pct(L.growth, 0)} and
+     FCF margin of ${pct(L.fcf_margin, 0)}, at its size, imply <b>${mult(L.fair_ev_revenue)}</b>
+     — so it sits <b>${Math.abs(Math.round(L.premium * 100))}% ${dir}</b> the line its own
+     fundamentals draw. Its Rule of 40 score is ${Math.round(L.rule_of_40)}.`;
+
+  lineChart($("chart-co"), {
+    series: [
+      { label: "actual", color: "var(--growth)", values: c.history.map(h => h.ev_revenue) },
+      { label: "fair", color: "var(--text-muted)", values: c.history.map(h => h.fair) }
+    ],
+    xs: c.history.map(h => h.date), height: 220, dashIndex: 1,
+    fmtY: v => v.toFixed(0) + "x", fmtTip: v => v.toFixed(1) + "x"
+  });
+
+  $("d-kv").innerHTML = [
+    ["Enterprise value", money(L.enterprise_value)],
+    ["LTM revenue", money(L.ltm_revenue)],
+    ["LTM FCF", money(L.ltm_fcf)],
+    ["Revenue growth", pct(L.growth, 1)],
+    ["FCF margin", pct(L.fcf_margin, 1)],
+    ["Gross margin", pct(L.gross_margin, 0)],
+    ["Net debt", money(L.net_debt)],
+    ["EV / revenue", mult(L.ev_revenue, 2)]
+  ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("");
+}
+
+/* ---------- boot ---------- */
+$("d-close").onclick = () => $("detail").close();
+$("q").oninput = table;
+document.querySelectorAll("th[data-k]").forEach(th => {
+  th.onclick = () => {
+    const k = th.dataset.k;
+    SORT = { k, dir: SORT.k === k ? -SORT.dir : (k === "ticker" || k === "name" ? 1 : -1) };
+    document.querySelectorAll("th[data-k]").forEach(o => o.classList.toggle("on", o === th));
+    table();
+  };
+});
+addEventListener("resize", () => { if (window.DATA) draw(); });
+
+fetch("index.json")
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(d => { window.DATA = d; draw(); })
+  .catch(() => {
+    $("main").innerHTML =
+      `<p class="err">No build output found. Run <code>python run.py --demo</code> for a
+       generated preview, or <code>python run.py</code> for the real thing, then
+       <code>python serve.py</code>. Opening this file directly from disk will not work —
+       browsers block the per-company fetches on <code>file://</code> URLs.</p>`;
+  });
+</script>
+</body>
+</html>
