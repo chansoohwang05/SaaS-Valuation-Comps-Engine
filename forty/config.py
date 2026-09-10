@@ -26,7 +26,14 @@ for _p in (DATA, CACHE, SITE, COMPANIES):
 #   export SEC_USER_AGENT="Your Name your@email.com"
 # The default below is deliberately obvious so an unset variable is caught in
 # review rather than in a 403.
-USER_AGENT = os.environ.get("SEC_USER_AGENT", "Forty Research UNSET@example.com")
+# SEC_USER_AGENT_FALLBACK is set by CI, which can derive a contact address that
+# genuinely reaches the repository owner. It is a fallback rather than the
+# default so that a real address, when one is configured, always wins.
+USER_AGENT = (
+    os.environ.get("SEC_USER_AGENT")
+    or os.environ.get("SEC_USER_AGENT_FALLBACK")
+    or "Forty Research UNSET@example.com"
+)
 SEC_RATE_LIMIT = 8.0          # requests/second, under the published 10
 SEC_MAX_RETRIES = 4
 

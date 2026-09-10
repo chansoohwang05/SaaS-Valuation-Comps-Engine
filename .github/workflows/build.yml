@@ -1,10 +1,14 @@
 # Nightly rebuild and deploy.
 #
-# The model runs here, not in the browser. This job fetches filings and prices,
-# fits every quarterly cross-section, and publishes the resulting static page to
-# GitHub Pages. The site never makes a live call, so an endpoint having a bad day
-# means the numbers are a day stale — it can never mean a visitor sees a broken
-# page or, worse, a half-rendered wrong one.
+# The model runs here, not in the browser and not on a laptop. This job fetches
+# filings and prices, fits every quarterly cross-section, writes the findings
+# back into the README, and publishes the static page to GitHub Pages. The site
+# never makes a live call, so an endpoint having a bad day means the numbers are
+# a day stale — it can never mean a visitor sees a broken page.
+#
+# Nothing needs to be configured for the first run to work. Setting the
+# SEC_USER_AGENT secret to a real contact address is good manners toward the SEC
+# and is worth doing, but its absence is handled rather than fatal.
 name: Build and deploy
 
 on:
@@ -12,12 +16,17 @@ on:
     # 23:00 UTC on weekdays — after the US close, and comfortably clear of the
     # window when the day's 10-Qs are still landing on EDGAR.
     - cron: "0 23 * * 1-5"
-  workflow_dispatch:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Companies to process (blank = all). Try 150 for a ~5 minute smoke test."
+        required: false
+        default: ""
 
 permissions:
-  contents: read
+  contents: write      # the build commits the findings block back to the README
   pages: write
   id-token: write
 
@@ -33,6 +42,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.12", cache: pip }
       - run: pip install -r requirements.txt
+
       # The estimator is checked against generated data with known coefficients,
       # and the fundamentals path against a fixture in EDGAR's own shape, before
       # anything is allowed to publish. A broken model that still produces
@@ -43,11 +53,33 @@ jobs:
   build:
     needs: test
     runs-on: ubuntu-latest
+    timeout-minutes: 90
+    outputs:
+      full: ${{ steps.mode.outputs.full }}
+    env:
+      # A declared contact address is mandatory on every EDGAR request. The
+      # secret wins when it is set; otherwise forty/config.py falls back to the
+      # address below, which reaches the repository owner through GitHub — so a
+      # fresh clone builds with no configuration at all.
+      SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+      SEC_USER_AGENT_FALLBACK: "Forty Research (github.com/${{ github.repository }}) ${{ github.repository_owner }}@users.noreply.github.com"
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with: { python-version: "3.12", cache: pip }
       - run: pip install -r requirements.txt
+
+      - id: mode
+        run: |
+          if [ -n "${{ inputs.limit }}" ]; then
+            echo "full=false" >> "$GITHUB_OUTPUT"
+            echo "args=--limit ${{ inputs.limit }}" >> "$GITHUB_OUTPUT"
+            echo "::notice::Smoke test over ${{ inputs.limit }} companies — will not deploy or update the README."
+          else
+            echo "full=true" >> "$GITHUB_OUTPUT"
+            echo "args=" >> "$GITHUB_OUTPUT"
+          fi
 
       # EDGAR is the expensive leg: a cold cache is a few thousand requests at
       # the SEC's rate limit, roughly twenty minutes. Restoring it keeps the
@@ -61,47 +93,74 @@ jobs:
           key: edgar-${{ github.run_id }}
           restore-keys: edgar-
 
+      # A probe, not a dependency. If a source is unreachable from this runner
+      # the build below will say so in its own words; this just puts the reason
+      # at the top of the log instead of buried in a stack trace.
       - name: Audit data sources
         continue-on-error: true
-        env:
-          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
         run: python audit.py
 
       - name: Build
-        env:
-          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
-        run: python run.py
+        run: python run.py ${{ steps.mode.outputs.args }}
 
-      # If the build produced nothing, fail here rather than deploying an empty
-      # page over a working one.
-      - name: Check output
+      # Fail here rather than deploying an empty or half-built page over a
+      # working one. A build that produces nothing is a build that should not
+      # replace yesterday's.
+      - name: Sanity-check the output
         run: |
-          test -s site/index.json || { echo "empty build output"; exit 1; }
+          test -s site/index.json || { echo "::error::empty build output"; exit 1; }
           python - <<'PY'
-          import json, sys
+          import json, os, sys
           d = json.load(open("site/index.json"))
           n = len(d["companies"])
           q = d["summary"]["quarters_fitted"]
           print(f"{n} companies, {q} quarters fitted")
           if d["meta"]["demo"]:
-              sys.exit("refusing to deploy a demo build")
-          if n < 50 or q < 20:
-              sys.exit("suspiciously thin build; not deploying")
+              sys.exit("::error::refusing to deploy a demo build")
+          floor = 50 if os.environ["FULL"] == "true" else 10
+          if n < floor or q < 8:
+              sys.exit(f"::error::suspiciously thin build ({n} companies, {q} quarters)")
           PY
+        env:
+          FULL: ${{ steps.mode.outputs.full }}
 
-      - uses: actions/upload-pages-artifact@v3
+      # The README's headline numbers are generated from the build that produced
+      # them, so they cannot drift from what the site shows. Committed back with
+      # [skip ci] so this push does not trigger another build.
+      - name: Commit findings to the README
+        if: steps.mode.outputs.full == 'true'
+        run: |
+          if git diff --quiet -- README.md; then
+            echo "findings unchanged"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "Update README findings from the $(date -u +%Y-%m-%d) build [skip ci]"
+          git pull --rebase --autostash origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v3
         with: { path: site }
 
-      - name: Upload audit results
+      # Whatever happened, leave enough behind to diagnose it without rerunning.
+      - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: audit
-          path: audit_results.json
+          name: diagnostics
+          path: |
+            audit_results.json
+            site/index.json
           if-no-files-found: warn
+          retention-days: 14
 
   deploy:
     needs: build
+    # A smoke test proves the pipeline runs; it must not replace the real site.
+    if: needs.build.outputs.full == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

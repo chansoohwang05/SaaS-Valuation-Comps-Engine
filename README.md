@@ -25,17 +25,50 @@ field, and every one is dated by when it was *filed*. See
 [METHOD.md](METHOD.md) — that discipline is most of what separates this from a
 comps table.
 
+## Running it
+
+**The build runs in CI, not on your laptop.** Push to `main` and GitHub Actions
+fetches the filings, fits every quarterly cross-section, writes the findings
+into this README, and deploys the site. Nothing needs configuring first — not
+even an API key, because there isn't one.
+
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-export SEC_USER_AGENT="Your Name you@example.com"   # EDGAR requires this
-.venv/bin/python audit.py      # is anything reachable from this network?
-.venv/bin/python run.py        # ~20 min cold, ~1 min cached
-.venv/bin/python serve.py      # opens the site
+git push origin main
 ```
 
-`python run.py --demo` builds the whole thing from generated data in half a
-second, with no network at all, if you just want to see the page. Everything it
-produces is labelled as a demo, on the page and in the JSON.
+Then, once: **Settings → Pages → Source → GitHub Actions**. That is the only
+click.
+
+Two optional refinements, neither of which blocks anything:
+
+- **Settings → Secrets → Actions → `SEC_USER_AGENT`**, set to
+  `Your Name your@email.com`. EDGAR requires a contact address on every request;
+  without the secret the build derives one from the repository owner, which
+  works but is less courteous.
+- **Actions → Build and deploy → Run workflow**, with `limit` set to `150`. A
+  five-minute smoke test over the largest names that proves the pipeline runs
+  end to end. It deliberately does not deploy or touch the README.
+
+### Locally, if you want to see it before the world does
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/python run.py --demo    # generated data, no network, half a second
+.venv/bin/python serve.py         # opens the site
+```
+
+`--demo` labels everything it produces as a demo, on the page and in the JSON,
+so generated numbers can never be mistaken for findings. For the real thing
+locally you need EDGAR reachable from your network, which is not a given:
+
+```bash
+export SEC_USER_AGENT="Your Name your@email.com"
+.venv/bin/python audit.py    # is anything reachable from here?
+.venv/bin/python run.py      # ~20 min cold, ~1 min cached
+```
+
+If the audit fails, that is a network fact and not a bug — push instead and read
+the numbers off the Actions log.
 
 `serve.py` is needed locally because the page loads one file per company and
 browsers block that on `file://` URLs. On GitHub Pages it is served over HTTP
@@ -103,9 +136,10 @@ tests/             the estimator, checked against known coefficients
 site/              the page
 ```
 
-Deployed by GitHub Actions on every push and on a nightly schedule; the workflow
-runs the tests first and refuses to publish a build that looks thin or that was
-generated in demo mode.
+Deployed by GitHub Actions on every push and on a nightly schedule. The workflow
+runs the tests before it is allowed to fetch anything, refuses to publish a build
+that looks thin or that was generated in demo mode, and commits the findings
+above back to this file so the README cannot disagree with the site.
 
 ## Known limits — read this one
 

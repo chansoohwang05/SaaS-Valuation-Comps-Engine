@@ -34,8 +34,11 @@ CHECKS = [
 
 
 def probe(name: str, url: str) -> dict:
-    import os
-    ua = os.environ.get("SEC_USER_AGENT", "Forty Research UNSET@example.com")
+    # Read the identity through config rather than the environment, so the audit
+    # sends exactly what the build will send — including CI's derived fallback.
+    from forty import config
+
+    ua = config.USER_AGENT
     t0 = time.time()
     try:
         req = urllib.request.Request(url, headers={"User-Agent": ua})
@@ -50,9 +53,11 @@ def probe(name: str, url: str) -> dict:
 
 
 def main() -> int:
-    import os
+    from forty import config
+
     print("Forty — data source audit\n" + "=" * 62)
-    if "UNSET@example.com" in os.environ.get("SEC_USER_AGENT", "UNSET@example.com"):
+    print(f"identifying to the SEC as: {config.USER_AGENT}\n")
+    if "UNSET@example.com" in config.USER_AGENT:
         print("! SEC_USER_AGENT is not set. EDGAR requires a contact address:")
         print('    export SEC_USER_AGENT="Your Name you@example.com"')
         print("  The SEC checks below will almost certainly 403 without it.\n")

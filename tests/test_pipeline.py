@@ -21,7 +21,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from forty import edgar, fundamentals, model, panel  # noqa: E402
+from forty import edgar, fundamentals, model, panel, universe  # noqa: E402
 
 
 class Co:
@@ -179,18 +179,92 @@ def test_model_runs_on_a_panel_from_real_shaped_fundamentals() -> None:
     assert 0 <= summary["rule40_rejected_quarters"] <= summary["rule40_tested_quarters"]
 
 
+ATOM_FIXTURE = b"""<?xml version="1.0" encoding="ISO-8859-1"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>EDGAR Search Results</title>
+  <entry>
+    <title>SALESFORCE, INC. (CIK 0001108524)</title>
+    <link rel="alternate" type="text/html"
+      href="/cgi-bin/browse-edgar?action=getcompany&amp;CIK=0001108524&amp;type=10-K"/>
+    <content type="text/xml">
+      <company-info>
+        <assigned-sic>7372</assigned-sic>
+        <cik>0001108524</cik>
+        <conformed-name>SALESFORCE, INC.</conformed-name>
+      </company-info>
+    </content>
+  </entry>
+  <entry>
+    <title>DATADOG, INC. (CIK 0001561550)</title>
+    <link rel="alternate" type="text/html"
+      href="/cgi-bin/browse-edgar?action=getcompany&amp;CIK=0001561550&amp;type=10-K"/>
+    <content type="text/xml">
+      <company-info><cik>0001561550</cik></company-info>
+    </content>
+  </entry>
+</feed>
+"""
+
+
+def test_atom_feed_yields_ciks() -> None:
+    """The SIC browse endpoint is the one piece that could not be checked against
+    a live response before shipping, so it is checked against its documented
+    shape here — both the query-string CIK and the <cik> element."""
+    universe.edgar = _FakeEdgar({}, atom=ATOM_FIXTURE)
+    got = universe._ciks_for_sic(7372)
+    assert got == {1108524, 1561550}, got
+
+
+def test_atom_parsing_survives_a_changed_element_case() -> None:
+    universe.edgar = _FakeEdgar({}, atom=ATOM_FIXTURE.replace(b"<cik>", b"<CIK>")
+                                             .replace(b"</cik>", b"</CIK>"))
+    assert universe._ciks_for_sic(7372) == {1108524, 1561550}
+
+
+def test_empty_browse_response_triggers_the_full_scan() -> None:
+    """If the endpoint returns nothing usable, the build must fall back rather
+    than publish an empty universe and call it a finding."""
+    subs = {
+        11: {"sic": "7372", "name": "In scope"},
+        22: {"sic": "2834", "name": "Pharma, out of scope"},
+    }
+    universe.edgar = _FakeEdgar({}, atom=b"<feed/>", submissions=subs,
+                                tickers={"fields": ["cik", "name", "ticker", "exchange"],
+                                         "data": [[11, "In scope", "INS", "Nasdaq"],
+                                                  [22, "Pharma", "PHA", "Nasdaq"]]})
+    companies = universe.build()
+    assert [c.ticker for c in companies] == ["INS"], companies
+
+
 class _FakeEdgar:
     """Stands in for the module, so no network call is possible from a test."""
 
-    def __init__(self, facts: dict[int, dict]) -> None:
+    BROWSE_URL = edgar.BROWSE_URL
+    TICKERS_URL = edgar.TICKERS_URL
+
+    def __init__(self, facts: dict[int, dict], *, atom: bytes = b"",
+                 submissions: dict | None = None, tickers: dict | None = None) -> None:
         self._facts = facts
+        self._atom = atom
+        self._subs = submissions or {}
+        self._tickers = tickers
 
     def company_facts(self, cik: int, **_kw) -> dict | None:
         return self._facts.get(cik)
 
+    def submissions(self, cik: int, **_kw) -> dict | None:
+        return self._subs.get(cik)
+
+    def fetch(self, url: str, **_kw) -> bytes:
+        return self._atom if "start=0" in url else b""
+
+    def fetch_json(self, url: str, **_kw):
+        return self._tickers
+
 
 def _restore() -> None:
     fundamentals.edgar = edgar
+    universe.edgar = edgar
 
 
 if __name__ == "__main__":

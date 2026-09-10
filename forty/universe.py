@@ -31,8 +31,15 @@ from dataclasses import dataclass, asdict
 
 from . import config, edgar
 
-_ATOM_CIK = re.compile(r"CIK=(\d{10})")
+# browse-edgar's atom feed exposes the CIK in more than one place and has
+# changed shape before. Match the query-string form (CIK=0001108524) and the
+# bare ten-digit element text, case-insensitively, rather than betting on one.
+_ATOM_CIK = re.compile(r"CIK=(\d{10})", re.IGNORECASE)
 MAJOR_EXCHANGES = {"Nasdaq", "NYSE", "NYSE American", "NYSEArca", "CBOE"}
+
+# Below this, assume the browse endpoint changed shape rather than that the
+# software sector emptied out, and take the slow road instead.
+_MIN_PLAUSIBLE_UNIVERSE = 60
 
 
 @dataclass(frozen=True)
@@ -71,12 +78,49 @@ def _ciks_for_sic(sic: int, *, force: bool = False) -> set[int]:
         page = {int(m.group(1)) for m in _ATOM_CIK.finditer(raw.decode("utf-8", "replace"))}
         page |= {
             int(el.text)
+            # The element is <cik> in the current feed and has been <CIK>
+            # before; lowercasing the local tag name covers both.
             for el in root.iter()
-            if el.tag.endswith("CIK") and el.text and el.text.isdigit()
+            if el.tag.rpartition("}")[2].lower() == "cik"
+            and el.text and el.text.strip().isdigit()
         }
         if not page - found:
             break  # pagination has run out; further pages repeat
         found |= page
+    return found
+
+
+def _scan_submissions_for_sic(
+    tickers: dict[int, tuple[str, str, str]], *, force: bool = False
+) -> dict[int, int]:
+    """Fallback: read every listed filer's SIC from its own submissions file.
+
+    Ten thousand requests rather than fifty, which at the SEC's rate limit is
+    about twenty minutes — but it depends only on `data.sec.gov/submissions`,
+    the most stable endpoint the SEC publishes, rather than on the shape of a
+    CGI script's atom output. It runs once; the cache carries it afterwards.
+
+    This exists because the fast path is the one piece of this project that
+    could not be tested against a live response before it shipped, and a build
+    that silently produces an empty universe is worse than one that takes
+    twenty minutes.
+    """
+    wanted = set(config.SIC_CODES)
+    found: dict[int, int] = {}
+    total = len(tickers)
+    print(f"      scanning {total} filers for SIC codes (one-off, ~{total / 8 / 60:.0f} min)")
+    for i, cik in enumerate(sorted(tickers), 1):
+        sub = edgar.submissions(cik, force=force, max_age_days=90)
+        if not sub:
+            continue
+        try:
+            sic = int(sub.get("sic") or 0)
+        except (TypeError, ValueError):
+            continue
+        if sic in wanted:
+            found[cik] = sic
+        if i % 1000 == 0:
+            print(f"      {i}/{total} scanned — {len(found)} in scope")
     return found
 
 
@@ -114,6 +158,12 @@ def build(*, force: bool = False, limit: int = 0) -> list[Company]:
     for sic in sorted(config.SIC_CODES):
         for cik in _ciks_for_sic(sic, force=force):
             candidates.setdefault(cik, sic)
+
+    listed = len(set(candidates) & set(tickers))
+    if listed < _MIN_PLAUSIBLE_UNIVERSE:
+        print(f"      ! SIC browse returned only {listed} listed companies — "
+              "assuming the endpoint changed and falling back to a full scan")
+        candidates = _scan_submissions_for_sic(tickers, force=force)
 
     companies: list[Company] = []
     for cik, sic in sorted(candidates.items()):
