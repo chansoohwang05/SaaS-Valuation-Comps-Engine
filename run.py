@@ -2,6 +2,7 @@
 """Forty — build.
 
     python run.py                  full build from SEC filings and market prices
+    python run.py --quotes         intraday: new prices, cached filings, refit
     python run.py --demo           generated data, no network, for a quick look
     python run.py --limit 150      first N companies only, for development
     python run.py --force          ignore every cache and re-fetch
@@ -25,6 +26,7 @@ import time
 import pandas as pd
 
 from forty import config, edgar, export, fundamentals, model, panel, prices, universe
+from forty.edgar import FetchError
 
 
 def main() -> int:
@@ -34,6 +36,12 @@ def main() -> int:
                          "labels every output as a demo")
     ap.add_argument("--force", action="store_true", help="ignore caches")
     ap.add_argument("--limit", type=int, default=0, help="cap the universe size")
+    ap.add_argument("--quotes", action="store_true",
+                    help="intraday refresh: re-fetch prices and refit, leaving "
+                         "filings alone. Multiples move with the price all day; "
+                         "the filings behind them do not change until the next "
+                         "10-Q, so a run every half hour must not touch EDGAR or "
+                         "it burns the rate limit the nightly build needs.")
     args = ap.parse_args()
 
     t0 = time.time()
@@ -51,15 +59,42 @@ def main() -> int:
             return 2
 
         print("[1/5] universe")
-        companies = universe.build(force=args.force, limit=args.limit)
+        try:
+            companies = universe.build(
+                force=args.force, limit=args.limit, cached_only=args.quotes
+            )
+        except (FetchError, RuntimeError) as exc:
+            # A blocked network is the single most common reason this fails, and
+            # a stack trace is a bad way to learn it. Say which it is.
+            print(f"\n  Could not reach EDGAR: {exc}\n\n"
+                  "  This is almost always the network rather than the code.\n"
+                  "    python audit.py       checks every source and says which failed\n"
+                  "    python run.py --demo  builds the site offline from generated data\n"
+                  "  Corporate and campus networks commonly block sec.gov; GitHub\n"
+                  "  Actions does not, so pushing is often the fastest fix.")
+            return 3
+
+        if not companies:
+            print("\n  Empty universe — nothing to build.\n"
+                  "  On an intraday run this means the filing cache was evicted;\n"
+                  "  the next nightly build will repopulate it. Otherwise, check\n"
+                  "  `python audit.py`.")
+            return 3
+
         print(f"      {len(companies)} listed filers under SIC "
               f"{', '.join(str(s) for s in sorted(config.SIC_CODES))}")
 
-        print("[2/5] fundamentals — SEC XBRL company facts")
+        label = "cached filings (intraday)" if args.quotes else "SEC XBRL company facts"
+        print(f"[2/5] fundamentals — {label}")
         funds, failed = {}, 0
         for i, c in enumerate(companies, 1):
             try:
-                f = fundamentals.build(c.cik, force=args.force)
+                f = fundamentals.build(
+                    c.cik,
+                    force=args.force and not args.quotes,
+                    max_age_days=None if args.quotes else 1,
+                    cached_only=args.quotes,
+                )
             except Exception as exc:  # noqa: BLE001
                 print(f"      ! {c.ticker}: {type(exc).__name__}: {exc}")
                 f = None
@@ -73,7 +108,15 @@ def main() -> int:
 
         print("[3/5] prices")
         tickers = [c.ticker for c in companies if c.cik in funds]
-        px = prices.fetch(tickers, force=args.force)
+        # An intraday run exists precisely to move the prices, so it always
+        # re-fetches them even though it leaves everything else on cache.
+        try:
+            px = prices.fetch(tickers, force=args.force or args.quotes)
+        except RuntimeError as exc:
+            print(f"\n  {exc}\n\n"
+                  "  Yahoo and Stooq were both unreachable. This is a network\n"
+                  "  fact, not a bug — `python audit.py` will confirm which.")
+            return 3
         print(f"      {px.shape[1]}/{len(tickers)} tickers, {len(px)} trading days")
 
         print("[4/5] panel")
@@ -81,6 +124,7 @@ def main() -> int:
         lineage = {
             "source": "SEC EDGAR XBRL company facts + daily closes",
             "demo": False,
+            "intraday": bool(args.quotes),
             "cache": edgar.cache_stats(),
         }
 
@@ -142,7 +186,9 @@ def main() -> int:
     print(f"shards {stats['shards']} files, {stats['shard_mb']:.1f} MB")
 
     # Keep the README's headline numbers tied to the build that produced them.
-    if not args.demo:
+    # Not on intraday runs: the coefficients barely move between 10am and 2pm,
+    # and a commit every half hour would bury the repository's real history.
+    if not args.demo and not args.quotes:
         sys.path.insert(0, str(config.ROOT / "tools"))
         import update_readme
 

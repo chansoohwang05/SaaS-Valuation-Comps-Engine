@@ -32,6 +32,11 @@ fetches the filings, fits every quarterly cross-section, writes the findings
 into this README, and deploys the site. Nothing needs configuring first — not
 even an API key, because there isn't one.
 
+After that it maintains itself on two schedules: a full rebuild each weeknight
+that refetches filings and refits every quarter, and a prices-only refresh every
+thirty minutes through the US session, so the multiples on the page move with the
+market rather than with the last time anyone remembered to run something.
+
 ```bash
 git push origin main
 ```

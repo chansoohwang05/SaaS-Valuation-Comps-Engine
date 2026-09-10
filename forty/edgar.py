@@ -54,12 +54,24 @@ def _throttle() -> None:
         _last_request[0] = time.monotonic()
 
 
-def fetch(url: str, *, force: bool = False, max_age_days: float | None = None) -> bytes:
+def fetch(
+    url: str,
+    *,
+    force: bool = False,
+    max_age_days: float | None = None,
+    cached_only: bool = False,
+) -> bytes:
     """Return the body at `url`, from cache when possible.
 
     `max_age_days` expires the cached copy; None means the cache never goes
     stale on its own. Prices and quarterly filings change on known schedules,
     so callers set this rather than the transport guessing.
+
+    `cached_only` returns empty rather than reaching the network on a miss. The
+    half-hourly intraday job sets it: it is meant to cost nothing at EDGAR, and
+    if the cache it relies on has been evicted the right outcome is a build that
+    fails loudly having sent no requests — not one that quietly reissues several
+    thousand of them every thirty minutes.
     """
     path = _cache_path(url)
     if path.exists() and not force:
@@ -69,6 +81,8 @@ def fetch(url: str, *, force: bool = False, max_age_days: float | None = None) -
         )
         if fresh:
             return gzip.decompress(path.read_bytes())
+    if cached_only:
+        return b""
 
     last_error: Exception | None = None
     for attempt in range(config.SEC_MAX_RETRIES):

@@ -236,6 +236,34 @@ def test_empty_browse_response_triggers_the_full_scan() -> None:
     assert [c.ticker for c in companies] == ["INS"], companies
 
 
+def test_intraday_mode_never_reaches_the_network() -> None:
+    """The half-hourly job is only safe if a cache miss costs nothing. With an
+    empty cache and `cached_only`, `fetch` must return empty having sent no
+    request — otherwise an evicted CI cache turns into several thousand EDGAR
+    requests every thirty minutes, which is how an IP gets blocked."""
+    import tempfile
+
+    from forty import config, edgar as real_edgar
+
+    sent = []
+    original = real_edgar.urllib.request.urlopen
+
+    def refuse(*a, **kw):
+        sent.append(a[0].full_url if hasattr(a[0], "full_url") else a[0])
+        raise AssertionError("intraday mode reached the network")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        cache_was, config.CACHE = config.CACHE, Path(tmp)
+        real_edgar.urllib.request.urlopen = refuse
+        try:
+            body = real_edgar.fetch("https://data.sec.gov/never-cached", cached_only=True)
+            assert body == b"", body
+            assert sent == [], sent
+        finally:
+            real_edgar.urllib.request.urlopen = original
+            config.CACHE = cache_was
+
+
 class _FakeEdgar:
     """Stands in for the module, so no network call is possible from a test."""
 

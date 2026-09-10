@@ -203,7 +203,13 @@ def _latest_as_of(instants: dict[str, dict], when: pd.Timestamp) -> float | None
     return float(best) if best is not None else None
 
 
-def build(cik: int, *, force: bool = False) -> pd.DataFrame | None:
+def build(
+    cik: int,
+    *,
+    force: bool = False,
+    max_age_days: float | None = 1,
+    cached_only: bool = False,
+) -> pd.DataFrame | None:
     """Per-quarter fundamentals for one company, each row stamped with the date
     it became public knowledge.
 
@@ -214,8 +220,15 @@ def build(cik: int, *, force: bool = False) -> pd.DataFrame | None:
     fcf_margin, gross_margin : fractions of LTM revenue
     cash, debt, shares : latest instant values
     known_from : the date every number in the row had been filed
+
+    `max_age_days=None` accepts any cached copy however old. Intraday refreshes
+    pass it: a company's filings do not change between 10am and 2pm, and asking
+    EDGAR again every half hour to be told so would burn the rate limit that the
+    nightly build depends on.
     """
-    facts = edgar.company_facts(cik, force=force, max_age_days=1)
+    facts = edgar.company_facts(
+        cik, force=force, max_age_days=max_age_days, cached_only=cached_only
+    )
     if not facts:
         return None
 

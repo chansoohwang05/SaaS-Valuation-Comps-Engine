@@ -13,8 +13,14 @@ name: Build and deploy
 
 on:
   schedule:
-    # 23:00 UTC on weekdays — after the US close, and comfortably clear of the
-    # window when the day's 10-Qs are still landing on EDGAR.
+    # Intraday refresh, every half hour through the US session. New York is
+    # UTC-4 in summer and UTC-5 in winter, so 14:00-21:00 UTC covers 09:30-16:00
+    # local across both. Prices only — EDGAR is rate-limited and must not be
+    # touched this often, or the nightly slice gets nothing.
+    - cron: "*/30 14-21 * * 1-5"
+    # Full nightly build: refetches filings and refits everything. 23:00 UTC is
+    # after the US close and clear of the window when the day's 10-Qs are still
+    # landing on EDGAR.
     - cron: "0 23 * * 1-5"
   push:
     branches: [main]
@@ -70,12 +76,21 @@ jobs:
         with: { python-version: "3.12", cache: pip }
       - run: pip install -r requirements.txt
 
+      # Three shapes of run, decided here so the rest of the job reads plainly:
+      # a smoke test (proves the pipeline, publishes nothing), an intraday quote
+      # refresh (new prices, cached filings, deploys), and the full build.
       - id: mode
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
         run: |
           if [ -n "${{ inputs.limit }}" ]; then
             echo "full=false" >> "$GITHUB_OUTPUT"
             echo "args=--limit ${{ inputs.limit }}" >> "$GITHUB_OUTPUT"
             echo "::notice::Smoke test over ${{ inputs.limit }} companies — will not deploy or update the README."
+          elif [ "$SCHEDULE" = "*/30 14-21 * * 1-5" ]; then
+            echo "full=true" >> "$GITHUB_OUTPUT"
+            echo "args=--quotes" >> "$GITHUB_OUTPUT"
+            echo "::notice::Intraday quote refresh — prices only, EDGAR untouched."
           else
             echo "full=true" >> "$GITHUB_OUTPUT"
             echo "args=" >> "$GITHUB_OUTPUT"

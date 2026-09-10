@@ -123,7 +123,10 @@ input[type=search] {
   border: 1px solid var(--line-strong); background: var(--surface-1); color: var(--text-primary);
 }
 input[type=search]:focus { outline: 2px solid var(--growth); outline-offset: 1px; }
-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+/* The table is the one element allowed to be wider than the phone. It scrolls
+   inside its own box so the page body never scrolls sideways. */
+.tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 560px; }
 th, td { padding: 9px 10px; text-align: right; border-bottom: 1px solid var(--line); }
 th { color: var(--text-muted); font-size: 11px; text-transform: uppercase;
      letter-spacing: 0.06em; cursor: pointer; user-select: none; white-space: nowrap; font-weight: 600; }
@@ -228,6 +231,7 @@ footer a { color: var(--text-secondary); }
       <input type="search" id="q" placeholder="Search ticker or company" autocomplete="off">
       <span class="stamp" id="count"></span>
     </div>
+    <div class="tablewrap">
     <table>
       <thead><tr>
         <th data-k="ticker">Ticker</th>
@@ -242,6 +246,7 @@ footer a { color: var(--text-secondary); }
       </tr></thead>
       <tbody id="rows"></tbody>
     </table>
+    </div>
   </section>
 
   <section>
@@ -356,8 +361,13 @@ function lineChart(host, opts) {
     const i0 = xs.findIndex(d => d >= b.from), i1raw = xs.findIndex(d => d >= b.to);
     const i1 = i1raw < 0 ? xs.length - 1 : i1raw;
     if (i0 < 0 || i1 <= i0) continue;
-    add("rect", { class: "era-band", x: x(i0), y: M.t, width: x(i1) - x(i0), height: ih });
-    add("text", { class: "era-label", x: x(i0) + 6, y: M.t + 13 }).textContent = b.label;
+    const w = x(i1) - x(i0);
+    add("rect", { class: "era-band", x: x(i0), y: M.t, width: w, height: ih });
+    // On a phone the bands are narrow enough that a label would be clipped
+    // mid-word, which reads as a rendering bug rather than an annotation.
+    if (w > b.label.length * 6.5 + 12) {
+      add("text", { class: "era-label", x: x(i0) + 6, y: M.t + 13 }).textContent = b.label;
+    }
   }
 
   const ticks = 5;

@@ -56,7 +56,7 @@ class Company:
         return asdict(self)
 
 
-def _ciks_for_sic(sic: int, *, force: bool = False) -> set[int]:
+def _ciks_for_sic(sic: int, *, force: bool = False, cached_only: bool = False) -> set[int]:
     """Ask EDGAR which companies file under a SIC code.
 
     browse-edgar paginates a hundred at a time. Ten or so requests covers a SIC
@@ -68,6 +68,7 @@ def _ciks_for_sic(sic: int, *, force: bool = False) -> set[int]:
             edgar.BROWSE_URL.format(sic=sic, start=start),
             force=force,
             max_age_days=30,
+            cached_only=cached_only,
         )
         if not raw:
             break
@@ -124,9 +125,13 @@ def _scan_submissions_for_sic(
     return found
 
 
-def _ticker_map(*, force: bool = False) -> dict[int, tuple[str, str, str]]:
+def _ticker_map(
+    *, force: bool = False, cached_only: bool = False
+) -> dict[int, tuple[str, str, str]]:
     """CIK -> (ticker, name, exchange) for every listed filer."""
-    doc = edgar.fetch_json(edgar.TICKERS_URL, force=force, max_age_days=7)
+    doc = edgar.fetch_json(
+        edgar.TICKERS_URL, force=force, max_age_days=7, cached_only=cached_only
+    )
     if not doc:
         return {}
     fields = doc["fields"]
@@ -146,24 +151,35 @@ def _ticker_map(*, force: bool = False) -> dict[int, tuple[str, str, str]]:
     return out
 
 
-def build(*, force: bool = False, limit: int = 0) -> list[Company]:
+def build(*, force: bool = False, limit: int = 0, cached_only: bool = False) -> list[Company]:
     """Assemble the candidate universe. Screens on fundamentals come later."""
-    tickers = _ticker_map(force=force)
+    tickers = _ticker_map(force=force, cached_only=cached_only)
     if not tickers:
+        if cached_only:
+            # Cache miss on an intraday run. Return nothing and let the caller's
+            # sanity check refuse to publish, rather than reaching the network.
+            print("      ! ticker directory not cached — nothing to refresh")
+            return []
         raise RuntimeError(
             "SEC ticker file unavailable — run `python audit.py` to check network access"
         )
 
     candidates: dict[int, int] = {}  # cik -> sic
     for sic in sorted(config.SIC_CODES):
-        for cik in _ciks_for_sic(sic, force=force):
+        for cik in _ciks_for_sic(sic, force=force, cached_only=cached_only):
             candidates.setdefault(cik, sic)
 
     listed = len(set(candidates) & set(tickers))
     if listed < _MIN_PLAUSIBLE_UNIVERSE:
-        print(f"      ! SIC browse returned only {listed} listed companies — "
-              "assuming the endpoint changed and falling back to a full scan")
-        candidates = _scan_submissions_for_sic(tickers, force=force)
+        if cached_only:
+            # An intraday refresh must never start a twenty-minute scan. Let the
+            # thin universe fail the build's own sanity check instead.
+            print(f"      ! only {listed} listed companies and no full scan "
+                  "allowed on an intraday run — leaving it to the nightly build")
+        else:
+            print(f"      ! SIC browse returned only {listed} listed companies — "
+                  "assuming the endpoint changed and falling back to a full scan")
+            candidates = _scan_submissions_for_sic(tickers, force=force)
 
     companies: list[Company] = []
     for cik, sic in sorted(candidates.items()):
