@@ -149,7 +149,7 @@ def main() -> int:
     meta = {
         "title": "Forty",
         "subtitle": "A point of growth was worth 2.4 points of margin in 2021 and "
-                    "0.8 today. The Rule of 40 calls them equal.",
+                    "0.8 across the past two years. The Rule of 40 calls them equal.",
         "generated_at": pd.Timestamp.now().isoformat(timespec="seconds"),
         "demo": bool(args.demo),
         "lineage": lineage,

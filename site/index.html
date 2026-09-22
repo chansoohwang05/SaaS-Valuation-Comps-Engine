@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Forty — what the market pays for growth</title>
-<meta name="description" content="A point of revenue growth was worth 2.4 points of FCF margin in 2021 and 0.8 today. The Rule of 40 calls them equal. Quarterly cross-sectional regressions of US software companies, built from SEC filings.">
+<meta name="description" content="A point of revenue growth was worth 2.4 points of FCF margin in 2021 and 0.8 across the past two years. The Rule of 40 calls them equal. Quarterly cross-sectional regressions of US software companies, built from SEC filings.">
 <style>
 :root {
   color-scheme: light;
@@ -183,7 +183,7 @@ footer a { color: var(--text-secondary); }
   </div>
   <h1>Forty</h1>
   <p class="thesis">In 2021 a point of growth was worth 2.4 points of margin.
-    Today it is worth 0.8. <em>The Rule of 40 calls them equal.</em></p>
+    Across the past two years, 0.8. <em>The Rule of 40 calls them equal.</em></p>
   <p class="sub">Every quarter since 2019, a cross-sectional regression of US software
     companies on their own filed fundamentals, asking what the market paid for a point
     of growth and what it paid for a point of free cash flow margin. Averaged over
@@ -491,8 +491,10 @@ function draw() {
 
   const L = S.latest || {};
   const tiles = [
-    { k: "Price of growth, latest", v: L.ratio ? L.ratio.toFixed(1) + "x" : "—",
-      d: "points of margin the market would trade for one point of growth" },
+    { k: "Price of growth, latest", v: L.ratio ? L.ratio.toFixed(1) + "x" : "n/s",
+      d: L.ratio
+        ? "points of margin the market would trade for one point of growth"
+        : "margin coefficient not significant this quarter — no ratio reported" },
     { k: "Median, all quarters", v: S.median_growth_margin_ratio ? S.median_growth_margin_ratio.toFixed(1) + "x" : "—",
       d: `across ${S.quarters_fitted} quarterly cross-sections` },
     { k: "Equal weighting rejected", v: tested ? Math.round(100 * rejected / tested) + "%" : "—",

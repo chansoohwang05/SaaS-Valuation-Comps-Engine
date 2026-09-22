@@ -231,7 +231,7 @@ def summarise(coefs: pd.DataFrame) -> dict:
             "n": int(coefs["n"].iloc[-1]),
         },
         "eras": {
-            "2015-2019 (pre-pandemic)": era("2015", "2019"),
+            "Pre-pandemic (to 2019)": era("2015", "2019"),
             "2020-2021 (zero rates)": era("2020", "2021"),
             "2022-2023 (repricing)": era("2022", "2023"),
             "2024-now": era("2024", "2030"),

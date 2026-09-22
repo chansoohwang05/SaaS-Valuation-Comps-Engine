@@ -1,7 +1,7 @@
 # Forty
 
 **In 2021 the market paid 2.4 points of free cash flow margin for one point of
-revenue growth. Today it pays 0.8. The Rule of 40 treats the two as equal — and
+revenue growth. Over the past two years it has paid 0.8. The Rule of 40 treats the two as equal — and
 averaged across seven years it is roughly right, which is exactly what makes it
 misleading.**
 
