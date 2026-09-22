@@ -1,14 +1,20 @@
 # Forty
 
-**The Rule of 40 weights a point of growth exactly the same as a point of margin.
-The market never has.**
+**In 2021 the market paid 2.4 points of free cash flow margin for one point of
+revenue growth. Today it pays 0.8. The Rule of 40 treats the two as equal — and
+averaged across seven years it is roughly right, which is exactly what makes it
+misleading.**
 
 Twenty and twenty scores the same forty as forty and zero. That is an assertion
 about how software is priced, it is used in real investment committees, and it
-is testable. This repository tests it.
+is testable. This repository tests it quarter by quarter, and the answer is not
+the one it was built to find: equal weighting is rejected in only 5 of 30
+quarters, and the median price of growth is 1.2x a point of margin. The rule
+survives on average. It survives because the eras cancel.
 
-For every quarter since 2015, it fits a cross-sectional regression across every
-US-listed software company that clears a revenue and gross-margin screen:
+For every quarter in which at least forty US-listed software companies clear the
+revenue and gross-margin screens — in practice 2019 onward, as XBRL tagging
+thins out before that — it fits a cross-sectional regression:
 
 ```
 log(EV / LTM revenue) = a + b_growth · revenue growth

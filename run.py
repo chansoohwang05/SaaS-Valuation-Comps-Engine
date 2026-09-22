@@ -148,8 +148,8 @@ def main() -> int:
 
     meta = {
         "title": "Forty",
-        "subtitle": "The Rule of 40 weights a point of growth the same as a point "
-                    "of margin. The market never has.",
+        "subtitle": "A point of growth was worth 2.4 points of margin in 2021 and "
+                    "0.8 today. The Rule of 40 calls them equal.",
         "generated_at": pd.Timestamp.now().isoformat(timespec="seconds"),
         "demo": bool(args.demo),
         "lineage": lineage,
