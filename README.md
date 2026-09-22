@@ -99,7 +99,7 @@ Across **30 quarterly cross-sections** (2019-03-31 to 2026-06-30), a median of *
 
 | Period | Growth | FCF margin | Growth costs | Median EV/revenue |
 |---|---:|---:|---:|---:|
-| 2015-2019 (pre-pandemic) | 2.30 | 1.77 | 1.3x | 6.7x |
+| Pre-pandemic (to 2019) | 2.30 | 1.77 | 1.3x | 6.7x |
 | 2020-2021 (zero rates) | 2.69 | 0.92 | 2.4x | 10.1x |
 | 2022-2023 (repricing) | 1.40 | 1.27 | 0.9x | 4.9x |
 | 2024-now | 2.47 | 2.11 | 0.8x | 4.2x |
