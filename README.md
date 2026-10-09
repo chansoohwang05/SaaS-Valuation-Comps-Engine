@@ -91,20 +91,20 @@ and just works.
 
 <!-- FINDINGS:START -->
 
-Across **31 quarterly cross-sections** (2019-03-31 to 2026-09-30), a median of **81 software companies** each, median R² **0.28**:
+Across **31 quarterly cross-sections** (2019-03-31 to 2026-09-30), a median of **82 software companies** each, median R² **0.28**:
 
 - Equal weighting of growth and margin — what the Rule of 40 assumes — is **rejected at the 5% level in 5 of 31 quarters**.
 - Across the whole history, a point of revenue growth priced at a median of **1.3x a point of FCF margin**.
-- As of 2026-09-30: growth **4.63**, margin **2.24**, ratio **2.1x**, R² 0.43 on 102 companies.
+- As of 2026-09-30: growth **4.60**, margin **2.35**, ratio **2.0x**, R² 0.42 on 103 companies.
 
 | Period | Growth | FCF margin | Growth costs | Median EV/revenue |
 |---|---:|---:|---:|---:|
 | Pre-pandemic (to 2019) | 2.30 | 1.77 | 1.3x | 6.7x |
 | 2020-2021 (zero rates) | 2.69 | 0.92 | 2.4x | 10.1x |
-| 2022-2023 (repricing) | 1.43 | 1.07 | 1.3x | 4.9x |
-| 2024-now | 2.70 | 1.98 | 1.0x | 4.1x |
+| 2022-2023 (repricing) | 1.40 | 1.27 | 0.9x | 4.9x |
+| 2024-now | 2.71 | 2.12 | 1.0x | 4.1x |
 
-<sub>Generated from the build of 2026-10-08 by `tools/update_readme.py` — do not edit by hand.</sub>
+<sub>Generated from the build of 2026-10-09 by `tools/update_readme.py` — do not edit by hand.</sub>
 
 <!-- FINDINGS:END -->
 
