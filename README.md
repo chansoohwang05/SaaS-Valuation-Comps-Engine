@@ -104,7 +104,7 @@ Across **29 quarterly cross-sections** (2019-09-30 to 2026-09-30), a median of *
 | 2022-2023 (repricing) | 1.36 | 1.05 | 1.1x | 4.9x |
 | 2024-now | 2.69 | 1.93 | 1.0x | 4.2x |
 
-<sub>Generated from the build of 2026-11-24 by `tools/update_readme.py` — do not edit by hand.</sub>
+<sub>Generated from the build of 2026-11-25 by `tools/update_readme.py` — do not edit by hand.</sub>
 
 <!-- FINDINGS:END -->
 
